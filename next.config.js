@@ -4,7 +4,7 @@ const nextConfig = {
   output: 'export',
   distDir: 'out',
   // Add basePath if your GitHub Pages site is hosted in a subfolder (repo name)
-  // basePath: '/ping-map',
+  basePath: process.env.NEXT_PUBLIC_BASE_PATH || '/ping-map',
   images: {
     unoptimized: true,
   },
