@@ -1,0 +1,145 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+body {
+  color: white;
+  background-color: #000;
+}
+
+#root, main {
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+}
+
+canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.ping-display {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background-color: rgba(0, 0, 0, 0.7);
+  padding: 15px;
+  border-radius: 5px;
+  font-size: 1.2rem;
+  font-family: monospace;
+  z-index: 10;
+}
+
+.instructions {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  background-color: rgba(0, 0, 0, 0.7);
+  padding: 15px;
+  border-radius: 5px;
+  font-size: 0.9rem;
+  z-index: 10;
+  max-width: 300px;
+}
+
+/* MapLibre styles */
+.map-container {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  z-index: 1;
+}
+
+.maplibregl-canvas-container {
+  height: 100vh;
+  width: 100vw;
+}
+
+.maplibregl-ctrl-bottom-right, 
+.maplibregl-ctrl-bottom-left {
+  z-index: 1;
+}
+
+/* Custom control styling */
+.maplibregl-ctrl-group {
+  background-color: rgba(0, 0, 0, 0.7) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+}
+
+.maplibregl-ctrl-group button {
+  background-color: transparent !important;
+  color: white !important;
+}
+
+.maplibregl-ctrl-icon {
+  filter: invert(1); /* Invert colors for dark mode */
+}
+
+/* Marker styles */
+.marker {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background-color: #ff3b30;
+  border: 3px solid white;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+  z-index: 1000;
+}
+
+.maplibregl-marker {
+  z-index: 1000 !important;
+}
+
+/* Popup styling */
+.maplibregl-popup {
+  z-index: 1001 !important;
+}
+
+.ping-popup .maplibregl-popup-content {
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  border-radius: 8px;
+  padding: 8px 12px;
+  box-shadow: 0 0 20px rgba(0, 120, 255, 0.6);
+  border: 2px solid rgba(77, 184, 255, 0.6);
+  font-size: 14px;
+  min-width: 150px;
+}
+
+.maplibregl-popup-anchor-bottom .maplibregl-popup-tip,
+.maplibregl-popup-anchor-top .maplibregl-popup-tip,
+.maplibregl-popup-anchor-left .maplibregl-popup-tip,
+.maplibregl-popup-anchor-right .maplibregl-popup-tip,
+.maplibregl-popup-anchor-bottom-left .maplibregl-popup-tip,
+.maplibregl-popup-anchor-bottom-right .maplibregl-popup-tip,
+.maplibregl-popup-anchor-top-left .maplibregl-popup-tip,
+.maplibregl-popup-anchor-top-right .maplibregl-popup-tip {
+  display: none;
+}
+
+/* Animation for the line showing the ping path */
+@keyframes pulse {
+  0% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+  100% { opacity: 0.4; }
+}
+
+/* Ensure the attribution is visible but not intrusive */
+.maplibregl-ctrl-attrib {
+  background-color: rgba(0, 0, 0, 0.5) !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  padding: 2px 5px !important;
+}
+
+.maplibregl-ctrl-attrib a {
+  color: rgba(100, 200, 255, 0.8) !important;
+} 
