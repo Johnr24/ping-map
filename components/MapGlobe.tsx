@@ -11,6 +11,7 @@ export default function MapGlobe() {
   const markersRef = useRef<maplibregl.Marker[]>([])
   const pointsRef = useRef<Array<[number, number]>>([])
   const [pingTime, setPingTime] = useState<string>('N/A')
+  const markerCountRef = useRef<number>(0) // Add counter for total markers placed
   
   // Initialize map
   useEffect(() => {
@@ -105,16 +106,18 @@ export default function MapGlobe() {
       pointsRef.current.shift()
     }
     
-    // Determine if this will be the first or second marker in the pair
-    const isFirstInPair = markersRef.current.length === 0
-    const markerColor = isFirstInPair ? '#ff3b30' : '#007aff' // Red for first, blue for second
+    // Increment the counter each time a new marker is added
+    markerCountRef.current += 1
+    
+    // Determine color based on position (odd or even)
+    const markerColor = markerCountRef.current % 2 === 1 ? '#ff3b30' : '#007aff' // Red for odd, blue for even
     
     // Create marker element
     const el = document.createElement('div')
     el.className = 'marker'
     el.style.backgroundColor = markerColor
     
-    console.log(`Adding ${isFirstInPair ? 'first (red)' : 'second (blue)'} marker in pair`)
+    console.log(`Adding ${markerColor === '#ff3b30' ? 'red' : 'blue'} marker, count: ${markerCountRef.current}`)
     
     // Create and add the marker
     const marker = new maplibregl.Marker({

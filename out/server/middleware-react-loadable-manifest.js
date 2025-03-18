@@ -1,1 +1,1 @@
-self.__REACT_LOADABLE_MANIFEST="{}"
+self.__REACT_LOADABLE_MANIFEST="{\"app/page.tsx -> @/components/MapGlobe\":{\"id\":\"app/page.tsx -> @/components/MapGlobe\",\"files\":[\"static/css/_app-pages-browser_components_MapGlobe_tsx.css\",\"static/chunks/_app-pages-browser_components_MapGlobe_tsx.js\"]}}"
