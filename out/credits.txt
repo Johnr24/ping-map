@@ -1,0 +1,4 @@
+Earth textures adapted from NASA Blue Marble imagery.
+NASA's Blue Marble imagery is in the public domain.
+
+Additional processing may have been applied to create bump and specular maps. 
