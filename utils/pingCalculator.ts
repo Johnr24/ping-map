@@ -34,10 +34,11 @@ export function calculateTheoreticalPingTime(
   lat1: number,
   lon1: number,
   lat2: number,
-  lon2: number
+  lon2: number,
+  customDistance?: number
 ): number {
-  // Calculate the great-circle distance in kilometers
-  const distance = calculateGreatCircleDistance(lat1, lon1, lat2, lon2);
+  // Calculate the great-circle distance in kilometers or use custom distance if provided
+  const distance = customDistance !== undefined ? customDistance : calculateGreatCircleDistance(lat1, lon1, lat2, lon2);
   
   // Calculate one-way travel time in milliseconds
   // Using the speed of light in fiber optic cables

@@ -5,13 +5,59 @@ import maplibregl from 'maplibre-gl'
 import { calculateTheoreticalPingTime, formatPingTime, calculateGreatCircleDistance } from '@/utils/pingCalculator'
 import 'maplibre-gl/dist/maplibre-gl.css'
 
+// Define interfaces for submarine cable data
+interface SubmarinePoint {
+  lat: number;
+  lon: number;
+}
+
+interface SubmarineCable {
+  id: number;
+  tags: Record<string, string>;
+  geometry: SubmarinePoint[];
+}
+
 export default function MapGlobe() {
   const mapContainer = useRef<HTMLDivElement>(null)
   const map = useRef<maplibregl.Map | null>(null)
   const markersRef = useRef<maplibregl.Marker[]>([])
   const pointsRef = useRef<Array<[number, number]>>([])
   const [pingTime, setPingTime] = useState<string>('N/A')
+  const [cablePingTime, setCablePingTime] = useState<string>('N/A')
+  const submarineCablesRef = useRef<SubmarineCable[]>([])
   const markerCountRef = useRef<number>(0) // Add counter for total markers placed
+  
+  // Function to fetch submarine cables data
+  const fetchSubmarineCables = async (): Promise<SubmarineCable[]> => {
+    try {
+      // Overpass API query for submarine cables
+      // This queries for ways tagged with either power=cable or communication=line with location=underwater
+      const overpassQuery = `
+        [out:json];
+        (
+          way["power"="cable"]["location"="underwater"];
+          way["communication"="line"]["location"="underwater"];
+          way["seamark:type"="cable_submarine"];
+        );
+        out body geom;
+      `;
+      
+      const response = await fetch('https://overpass-api.de/api/interpreter', {
+        method: 'POST',
+        body: overpassQuery
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch submarine cables data');
+      }
+      
+      const data = await response.json();
+      return data.elements as SubmarineCable[];
+    } catch (error) {
+      console.error('Error fetching submarine cables:', error);
+      return [];
+    }
+  };
   
   // Initialize map
   useEffect(() => {
@@ -67,13 +113,70 @@ export default function MapGlobe() {
       })
       
       // Add debug listener for map load
-      map.current.on('load', () => {
+      map.current.on('load', async () => {
         console.log('Map loaded')
         // Set globe projection after map is loaded
         map.current?.setProjection({
           type: 'globe'
         })
         console.log('Globe projection set')
+        
+        // Fetch submarine cables data
+        const submarineCables = await fetchSubmarineCables();
+        submarineCablesRef.current = submarineCables;
+        
+        if (submarineCables.length > 0) {
+          console.log(`Loaded ${submarineCables.length} submarine cables`);
+          
+          // Prepare GeoJSON feature collection for submarine cables
+          const cableFeatures = submarineCables
+            .filter(cable => cable.geometry && cable.geometry.length > 1)
+            .map(cable => {
+              // Transform cable geometry to GeoJSON format [lng, lat]
+              const coordinates = cable.geometry.map((point: SubmarinePoint) => [point.lon, point.lat]);
+              
+              return {
+                type: 'Feature' as const,
+                properties: {
+                  id: cable.id,
+                  ...cable.tags
+                },
+                geometry: {
+                  type: 'LineString' as const,
+                  coordinates
+                }
+              };
+            });
+          
+          // Add submarine cables as a source
+          if (map.current && cableFeatures.length > 0) {
+            map.current.addSource('submarine-cables', {
+              type: 'geojson',
+              data: {
+                type: 'FeatureCollection',
+                features: cableFeatures
+              }
+            });
+            
+            // Add submarine cables layer
+            map.current.addLayer({
+              id: 'submarine-cables-layer',
+              type: 'line',
+              source: 'submarine-cables',
+              layout: {
+                'line-join': 'round',
+                'line-cap': 'round'
+              },
+              paint: {
+                'line-color': '#0088ff',
+                'line-width': 2,
+                'line-opacity': 0.7
+              }
+            });
+            
+            console.log('Added submarine cables layer');
+          }
+        }
       })
       
       // Add debug listener for style load
@@ -152,6 +255,58 @@ export default function MapGlobe() {
     }
   }
   
+  // Find nearest cable point to a given point
+  const findNearestCablePoint = (lat: number, lng: number) => {
+    let nearestPoint = null;
+    let minDistance = Infinity;
+    
+    submarineCablesRef.current.forEach((cable: SubmarineCable) => {
+      if (cable.geometry && cable.geometry.length > 1) {
+        cable.geometry.forEach((point: SubmarinePoint) => {
+          const distance = calculateGreatCircleDistance(
+            lat, lng, 
+            point.lat, point.lon
+          );
+          
+          if (distance < minDistance) {
+            minDistance = distance;
+            nearestPoint = [point.lat, point.lon];
+          }
+        });
+      }
+    });
+    
+    return { point: nearestPoint, distance: minDistance };
+  };
+  
+  // Function to find the optimal path through submarine cables
+  const findCablePath = (startLat: number, startLng: number, endLat: number, endLng: number) => {
+    // Find nearest cable points to start and end points
+    const { point: nearestStartPoint, distance: startDistance } = findNearestCablePoint(startLat, startLng);
+    const { point: nearestEndPoint, distance: endDistance } = findNearestCablePoint(endLat, endLng);
+    
+    if (!nearestStartPoint || !nearestEndPoint) {
+      console.log('Could not find nearby cable points');
+      return null;
+    }
+    
+    console.log(`Nearest cable point to start: ${nearestStartPoint}, distance: ${startDistance.toFixed(2)} km`);
+    console.log(`Nearest cable point to end: ${nearestEndPoint}, distance: ${endDistance.toFixed(2)} km`);
+    
+    // For now, we're using a simple approach:
+    // 1. Connect from start point to nearest cable point
+    // 2. Connect from nearest cable point to nearest end point
+    // This is a simplified approach and doesn't find the truly optimal path through the cable network
+    
+    return {
+      startPoint: [startLat, startLng],
+      cableStartPoint: nearestStartPoint,
+      cableEndPoint: nearestEndPoint,
+      endPoint: [endLat, endLng],
+      totalDistance: startDistance + endDistance
+    };
+  };
+  
   // Separate function to draw route and calculate ping
   const drawRouteAndCalculatePing = (routePoints: [number, number][]) => {
     if (!map.current || routePoints.length !== 2) return
@@ -174,6 +329,11 @@ export default function MapGlobe() {
     const formattedTime = formatPingTime(time)
     setPingTime(formattedTime)
     
+    // Find cable path (if available)
+    const cablePath = findCablePath(lat1, lng1, lat2, lng2);
+    let cableTime = time;
+    let formattedCableTime = formattedTime;
+    
     // Remove existing line if present
     if (map.current.getSource('route')) {
       try {
@@ -182,6 +342,16 @@ export default function MapGlobe() {
         map.current.removeSource('route')
       } catch (e) {
         console.error('Error removing existing layers:', e)
+      }
+    }
+    
+    // Remove existing cable route if present
+    if (map.current.getSource('cable-route')) {
+      try {
+        map.current.removeLayer('cable-route-line')
+        map.current.removeSource('cable-route')
+      } catch (e) {
+        console.error('Error removing existing cable route layers:', e)
       }
     }
     
@@ -218,7 +388,7 @@ export default function MapGlobe() {
       paint: {
         'line-color': '#4db8ff',
         'line-width': 15,
-        'line-opacity': 0.8,
+        'line-opacity': 0.5,
         'line-blur': 15
       }
     })
@@ -236,13 +406,81 @@ export default function MapGlobe() {
       },
       paint: {
         'line-color': '#ffffff',
-        'line-width': 5,
-        'line-opacity': 1,
+        'line-width': 3,
+        'line-opacity': 0.8,
         'line-dasharray': [0.5, 1]
       }
     })
     
     console.log('Added line layer')
+    
+    // If cable path is available, draw it
+    if (cablePath) {
+      // Calculate time through submarine cables
+      const distanceToStartCable = calculateGreatCircleDistance(
+        cablePath.startPoint[0], cablePath.startPoint[1],
+        cablePath.cableStartPoint[0], cablePath.cableStartPoint[1]
+      );
+      
+      const distanceToEndCable = calculateGreatCircleDistance(
+        cablePath.cableEndPoint[0], cablePath.cableEndPoint[1],
+        cablePath.endPoint[0], cablePath.endPoint[1]
+      );
+      
+      // Calculate cable distance (for now, just direct between cable points)
+      const cableDistance = calculateGreatCircleDistance(
+        cablePath.cableStartPoint[0], cablePath.cableStartPoint[1],
+        cablePath.cableEndPoint[0], cablePath.cableEndPoint[1]
+      );
+      
+      const totalCableDistance = distanceToStartCable + cableDistance + distanceToEndCable;
+      cableTime = calculateTheoreticalPingTime(
+        cablePath.startPoint[0], cablePath.startPoint[1],
+        cablePath.endPoint[0], cablePath.endPoint[1],
+        totalCableDistance
+      );
+      
+      formattedCableTime = formatPingTime(cableTime);
+      setCablePingTime(formattedCableTime);
+      
+      // Add the cable route source
+      map.current.addSource('cable-route', {
+        type: 'geojson',
+        data: {
+          type: 'Feature',
+          properties: {},
+          geometry: {
+            type: 'LineString',
+            coordinates: [
+              [cablePath.startPoint[1], cablePath.startPoint[0]],
+              [cablePath.cableStartPoint[1], cablePath.cableStartPoint[0]],
+              [cablePath.cableEndPoint[1], cablePath.cableEndPoint[0]],
+              [cablePath.endPoint[1], cablePath.endPoint[0]]
+            ]
+          }
+        }
+      });
+      
+      // Add the cable route layer
+      map.current.addLayer({
+        id: 'cable-route-line',
+        type: 'line',
+        source: 'cable-route',
+        layout: {
+          'line-join': 'round',
+          'line-cap': 'round'
+        },
+        paint: {
+          'line-color': '#00ff88',
+          'line-width': 3,
+          'line-opacity': 0.8
+        }
+      });
+      
+      console.log('Added cable route layer');
+    } else {
+      setCablePingTime('N/A (No cable path found)');
+    }
     
     // Calculate midpoint for popup
     const midLat = (lat1 + lat2) / 2
@@ -264,6 +502,7 @@ export default function MapGlobe() {
         <div class="text-center p-2">
           <div class="font-bold text-lg text-blue-400">${formattedTime}</div>
           <div class="text-sm">Distance: ${distance.toFixed(0)} km</div>
+          ${cablePath ? `<div class="font-bold text-lg text-green-400 mt-2">Cable route: ${formattedCableTime}</div>` : ''}
         </div>
       `)
       .addTo(map.current)
@@ -278,8 +517,13 @@ export default function MapGlobe() {
         <p>Click on two different locations on the globe to calculate the theoretical minimum ping time between them.</p>
         
         <div className="mt-4 p-2 bg-gray-800 rounded">
-          <span>Theoretical Minimum Ping Time: </span>
+          <span>Direct Minimum Ping Time: </span>
           <span className="font-bold text-xl text-blue-400">{pingTime}</span>
+        </div>
+        
+        <div className="mt-2 p-2 bg-gray-800 rounded">
+          <span>Via Submarine Cables: </span>
+          <span className="font-bold text-xl text-green-400">{cablePingTime}</span>
         </div>
       </div>
       
