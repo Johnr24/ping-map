@@ -10,8 +10,6 @@ A 3D interactive globe that calculates the theoretical minimum ping time between
 - Visual connection line between points
 - Real-world map data visualization
 - Automatic deployment to GitHub Pages
-- Security scanning with Gitleaks
-
 ## How it Works
 
 The application calculates the minimum theoretical ping time based on:
